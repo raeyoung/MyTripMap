@@ -5,18 +5,107 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>MyTripMap</title>
-    <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=5b9b31jyt4"></script>
+    <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=5b9b31jyt4&submodules=geocoder"></script>
 </head>
 <body>
-<div id="map" style="width:100%;height:400px;"></div>
+<div id="map" style="width:100%;height:100vh;"></div>
 
 <script>
-    var mapOptions = {
-        center: new naver.maps.LatLng(37.3595704, 127.105399),
-        zoom: 10
-    };
+    const locations = [
+        { place:"선유도역", lat: 37.5381315, lng: 126.8934204 },
+        { place:"데이타운", lat: 37.5366239, lng: 126.8946466 },
+    ];
 
-    var map = new naver.maps.Map('map', mapOptions);
+    var map = new naver.maps.Map('map', {
+        center: new naver.maps.LatLng(37.539922, 126.8946466),
+        zoom: 14,
+        scaleControl: false,
+        logControl: false,
+        mapDataControl: false,
+        zoomControl: true
+    });
+
+    for (var i = 0; i < locations.length; i++) {
+        var marker = new naver.maps.Marker({
+            map: map,
+            title: locations[i].place,
+            position: new naver.maps.LatLng(locations[i].lat, locations[i].lng),
+        });
+    }
+    map.setCursor('pointer');
+
+    // 주소 검색
+    function searchAddressToCoordinate(address) {
+        naver.maps.Service.geocode({
+            query: address
+        }, function(status, response) {
+            if (status === naver.maps.Service.Status.ERROR) {
+                return alert('Something Wrong!');
+            }
+            if (response.v2.meta.totalCount === 0) {
+                return alert('올바른 주소를 입력해주세요.');
+            }
+            var htmlAddresses = [],
+                item = response.v2.addresses[0],
+                point = new naver.maps.Point(item.x, item.y);
+            if (item.roadAddress) {
+                htmlAddresses.push('[도로명 주소] ' + item.roadAddress);
+            }
+            if (item.jibunAddress) {
+                htmlAddresses.push('[지번 주소] ' + item.jibunAddress);
+            }
+            if (item.englishAddress) {
+                htmlAddresses.push('[영문명 주소] ' + item.englishAddress);
+            }
+
+            insertAddress(item.roadAddress, item.x, item.y);
+        });
+    }
+
+    // 입력받은 주소 테이블로 작성
+    function insertAddress(address, latitude, longitude) {
+        console.log(latitude, longitude);
+
+        var map = new naver.maps.Map('map', {
+            center: new naver.maps.LatLng(longitude, latitude),
+            zoom: 14
+        });
+        var marker = new naver.maps.Marker({
+            map: map,
+            position: new naver.maps.LatLng(longitude, latitude),
+        });
+    }
+
+    // 클릭한 위치 마커 올리고 좌표 가져오기
+    naver.maps.Event.addListener(map, 'click', function(e) {
+        marker.setPosition(e.coord);
+        console.log(e.coord);
+    });
+
+    function initGeocoder() {
+        const address = document.getElementById("address");
+        const submit = document.getElementById("submit");
+
+        // 주소 입력 이벤트
+        address.addEventListener("keydown", (e) => {
+            var keyCode = e.which;
+            if (keyCode === 13) { // Enter Key
+                searchAddressToCoordinate(address.value);
+            }
+        });
+
+        submit.addEventListener("click", (e) => {
+            e.preventDefault();
+            searchAddressToCoordinate(address.value);
+        })
+    }
+    naver.maps.Event.once(map, 'init_stylemap', initGeocoder);
+
+
 </script>
+    <div style="z-index: 1000; position:fixed; top: 20px; left: 60px">
+        <input id="address" type="text" placeholder="주소지를 검색하세요" />
+        <input id="submit" type="button" value="검색" />
+    </div>
 </body>
 </html>
